@@ -88,3 +88,96 @@ class RestaurantApp:
         self.quantity_entry.pack(side='left', padx=4)
         tk.Button(qty_frame, text="Add to Order", command=self.add_to_order).pack(side='left', padx=10)
 
+        # Center: order tree, buttons and totals
+        tk.Label(center_frame, text="Current Order", font=("Arial", 14, "bold")).pack(anchor='w')
+        order_tree_frame = tk.Frame(center_frame)
+        order_tree_frame.pack(fill='both', expand=True)
+        self.order_tree = ttk.Treeview(order_tree_frame, columns=("name", "qty", "price", "subtotal"), show='headings', height=14)
+        self.order_tree.heading("name", text="Item")
+        self.order_tree.heading("qty", text="Qty")
+        self.order_tree.heading("price", text="Price")
+        self.order_tree.heading("subtotal", text="Subtotal")
+        self.order_tree.column("name", width=140)
+        self.order_tree.column("qty", width=40, anchor='center')
+        self.order_tree.column("price", width=70, anchor='e')
+        self.order_tree.column("subtotal", width=90, anchor='e')
+        self.order_tree.pack(side='left', fill='both', expand=True)
+        order_scroll = ttk.Scrollbar(order_tree_frame, orient='vertical')
+        order_scroll.config(command=self.order_tree.yview)  # type: ignore[arg-type]
+        self.order_tree.configure(yscrollcommand=order_scroll.set)
+        order_scroll.pack(side='right', fill='y')
+
+        btn_frame = tk.Frame(center_frame, pady=5)
+        btn_frame.pack(fill='x')
+        tk.Button(btn_frame, text="Remove Last Item", command=self.remove_last_item).pack(side='left')
+        tk.Button(btn_frame, text="Checkout", command=self.checkout_popup).pack(side='left', padx=5)
+        tk.Button(btn_frame, text="Print Receipt", command=self.print_receipt).pack(side='left')
+
+        totals_frame = tk.Frame(center_frame, pady=5)
+        totals_frame.pack(fill='x')
+        tk.Label(totals_frame, textvariable=self.subtotal_var).pack(anchor='e')
+        tk.Label(totals_frame, textvariable=self.tax_var).pack(anchor='e')
+        tk.Label(totals_frame, textvariable=self.total_var, font=("Arial", 12, "bold")).pack(anchor='e')
+
+        # Right: stock levels and actions
+        tk.Label(right_frame, text="Stock Levels", font=("Arial", 14, "bold")).pack(anchor='w')
+        stock_frame = tk.Frame(right_frame)
+        stock_frame.pack(fill='both', expand=True)
+        self.stock_tree = ttk.Treeview(stock_frame, columns=("id", "name", "stock"), show='headings', height=12)
+        self.stock_tree.heading("id", text="ID")
+        self.stock_tree.heading("name", text="Name")
+        self.stock_tree.heading("stock", text="Stock")
+        self.stock_tree.column("id", width=40, anchor='center')
+        self.stock_tree.column("name", width=140)
+        self.stock_tree.column("stock", width=60, anchor='center')
+        self.stock_tree.pack(side='left', fill='both', expand=True)
+        stock_scroll = ttk.Scrollbar(stock_frame, orient='vertical')
+        stock_scroll.config(command=self.stock_tree.yview)  # type: ignore[arg-type]
+        self.stock_tree.configure(yscrollcommand=stock_scroll.set)
+        stock_scroll.pack(side='right', fill='y')
+
+        self.stock_tree.tag_configure('low', background='#ffcccc')
+        self.stock_tree.tag_configure('ok', background='#ccffcc')
+
+        right_btns = tk.Frame(right_frame, pady=5)
+        right_btns.pack(fill='x')
+        tk.Button(right_btns, text="Send to Kitchen", command=self.send_to_kitchen).pack(fill='x', pady=2)
+        tk.Button(right_btns, text="Hold Order", command=self.hold_order).pack(fill='x', pady=2)
+        tk.Button(right_btns, text="Cancel Order", command=self.cancel_order).pack(fill='x', pady=2)
+        tk.Button(right_btns, text="Load Menu", command=self.reload_menu).pack(fill='x', pady=2)
+        tk.Button(right_btns, text="Update Stock", command=self.update_stock_placeholder).pack(fill='x', pady=2)
+
+    # --------------- Product / Stock ---------------
+    def refresh_products(self):
+        if not self.inventory.products:
+            # Use updated loader compatible with group project database format
+            load_method = getattr(self.inventory, 'load', None)
+            if callable(load_method):
+                load_method()
+        if not self.menu_tree:
+            return
+        for row in self.menu_tree.get_children():
+            self.menu_tree.delete(row)
+        for p in self.inventory.products:
+            # Category filtering skipped (no category field). Could be extended later.
+            self.menu_tree.insert('', 'end', values=(getattr(p, 'prodID', getattr(p, 'id', '?')),
+                                                     getattr(p, 'prodName', 'Unknown'),
+                                                     f"${getattr(p, 'price', getattr(p, 'prodPrice', 0.0)):.2f}",
+                                                     getattr(p, 'stock', getattr(p, 'prodStock', 0))))
+
+    def refresh_stock_display(self):
+        if not self.stock_tree:
+            return
+        for row in self.stock_tree.get_children():
+            self.stock_tree.delete(row)
+        for p in self.inventory.products:
+            stock_val = getattr(p, 'stock', getattr(p, 'prodStock', 0))
+            tag = 'low' if stock_val <= 5 else 'ok'
+            self.stock_tree.insert('', 'end', values=(getattr(p, 'prodID', getattr(p, 'id', '?')),
+                                                      getattr(p, 'prodName', 'Unknown'),
+                                                      stock_val), tags=(tag,))
+
+    def filter_category(self, category: str):
+        self.current_category = None if category == 'All' else category
+        self.refresh_products()
+
