@@ -1,58 +1,96 @@
-"""Inventory stub class."""
+"""Inventory handler compatible with group project database format.
+
+Parses the multi-line tagged records used in `default.txt` and `default_addons.txt`.
+This stays minimal: it only loads data and provides simple lookup and stock update helpers.
+"""
 from __future__ import annotations
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import os
-from .product import Product
+from .product import Product, Addon
 
 class Inventory:
-    def __init__(self, filename: str = "inventory.txt"):
-        self.filename = filename
+    def __init__(self,
+                 product_file: str = "SDEV_220_Final_Project_Group2-main/DatabaseFiles/default.txt",
+                 addon_file: str = "SDEV_220_Final_Project_Group2-main/DatabaseFiles/default_addons.txt"):
+        self.product_file = product_file
+        self.addon_file = addon_file
         self.products: List[Product] = []
+        self.addons: List[Addon] = []
 
-    def load_products(self):
-        """Upload using inventory file
-        """
+    # --------------------- Parsing ---------------------
+    def _parse_database_file(self, path: str, is_addon: bool) -> List[Dict[str, Any]]:
+        records: List[Dict[str, Any]] = []
+        if not os.path.exists(path):
+            return records
+        current: Dict[str, Any] = {}
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                for raw in f:
+                    if raw.startswith('//') or raw.strip() == '':
+                        continue
+                    line = raw.rstrip('\n')
+                    if line.startswith('prodID=') and current:
+                        # new record begins -> flush existing
+                        records.append(current)
+                        current = {}
+                    if line.startswith('end_of_file'):
+                        if current:
+                            records.append(current)
+                        break
+                    if '=' in line:
+                        k, v = line.split('=', 1)
+                        current[k] = v
+                else:
+                    # file ended without explicit end_of_file
+                    if current:
+                        records.append(current)
+        except Exception as e:
+            print(f"Error reading {path}: {e}")
+        return records
+
+    def load(self):
+        """Load both products and addons from configured files."""
         self.products.clear()
-        if not os.path.exists(self.filename):
-            return
-        try:
-            with open(self.filename, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith('#'):
-                        continue
-                    parts = line.split('|')
-                    if len(parts) != 5:
-                        continue
-                    pid, name, price, stock, category = parts
-                    try:
-                        self.products.append(Product(int(pid), name, float(price), int(stock), category))
-                    except ValueError:
-                        continue
-        except Exception as e:
-            print("Problem reading inventory file:", e)
+        self.addons.clear()
+        for rec in self._parse_database_file(self.product_file, is_addon=False):
+            try:
+                self.products.append(Product.from_dict(rec))
+            except Exception as e:
+                print("Skip bad product record:", rec, e)
+        for rec in self._parse_database_file(self.addon_file, is_addon=True):
+            try:
+                self.addons.append(Addon.from_dict(rec))
+            except Exception as e:
+                print("Skip bad addon record:", rec, e)
 
-    def save_products(self):
-        try:
-            with open(self.filename, 'w', encoding='utf-8') as f:
-                for p in self.products:
-                    f.write(f"{p.pid}|{p.name}|{p.price}|{p.stock}|{p.category}\n")
-        except Exception as e:
-            print("Could not save inventory:", e)
-
+    # --------------------- Lookup Helpers ---------------------
     def get_product(self, pid: int) -> Optional[Product]:
-        for p in self.products:
-            if p.pid == pid:
-                return p
-        return None
+        return next((p for p in self.products if p.prodID == pid), None)
 
-    def get_stock(self, pid: int) -> int:
-        prod = self.get_product(pid)
-        return prod.stock if prod else 0
+    def get_addon(self, aid: int) -> Optional[Addon]:
+        return next((a for a in self.addons if a.addonID == aid), None)
 
-    def reduce_stock(self, pid: int, qty: int):
-        prod = self.get_product(pid)
-        if prod and prod.stock >= qty:
-            prod.stock -= qty
+    def get_stock(self, pid: int, addon: bool = False) -> int:
+        if addon:
+            a = self.get_addon(pid)
+            return a.stock if a else 0
+        p = self.get_product(pid)
+        return p.stock if p else 0
+
+    def reduce_stock(self, pid: int, qty: int, addon: bool = False) -> bool:
+        if addon:
+            a = self.get_addon(pid)
+            if a and a.addonStock >= qty:
+                a.addonStock -= qty
+                return True
+            return False
+        p = self.get_product(pid)
+        if p and p.prodStock >= qty:
+            p.prodStock -= qty
             return True
         return False
+
+    # --------------------- Serialization (Optional) ---------------------
+    def save_products(self):  # Minimal placeholder - format writing not fully specified
+        # Not implemented: writing multi-line tagged format would mirror parsing order.
+        pass
