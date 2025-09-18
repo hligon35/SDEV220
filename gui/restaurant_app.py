@@ -181,3 +181,56 @@ class RestaurantApp:
         self.current_category = None if category == 'All' else category
         self.refresh_products()
 
+    # --------------- Order Logic ---------------
+    def add_to_order(self):
+        if not self.menu_tree:
+            return
+        selection = self.menu_tree.selection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a menu item first.")
+            return
+        try:
+            assert self.quantity_entry is not None, "Quantity entry not initialized"
+            qty = int(self.quantity_entry.get())
+            if qty <= 0:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("Bad Quantity", "Enter a positive whole number for quantity.")
+            return
+        item_vals = self.menu_tree.item(selection[0], 'values')
+        pid = int(item_vals[0])
+        product = self.inventory.get_product(pid)
+        if not product:
+            messagebox.showerror("Error", "Product not found.")
+            return
+        current_stock = getattr(product, 'stock', getattr(product, 'prodStock', 0))
+        if current_stock < qty:
+            messagebox.showinfo("Out of Stock", f"Only {current_stock} left in stock.")
+            return
+        self.order.add_item(product, qty)
+        self.update_order_tree()
+        self.update_order_summary()
+
+    def update_order_tree(self):
+        if not self.order_tree:
+            return
+        for row in self.order_tree.get_children():
+            self.order_tree.delete(row)
+        for p, q in self.order.items:
+            price_val = getattr(p, 'price', getattr(p, 'prodPrice', 0.0))
+            name_val = getattr(p, 'prodName', getattr(p, 'addonName', 'Item'))
+            subtotal = price_val * q
+            self.order_tree.insert('', 'end', values=(name_val, q, f"${price_val:.2f}", f"${subtotal:.2f}"))
+
+    def remove_last_item(self):
+        self.order.remove_last_item()
+        self.update_order_tree()
+        self.update_order_summary()
+
+    def update_order_summary(self):
+        subtotal = self.order.total()
+        tax = subtotal * self.TAX_RATE
+        total = subtotal + tax
+        self.subtotal_var.set(f"Subtotal: ${subtotal:.2f}")
+        self.tax_var.set(f"Tax: ${tax:.2f}")
+        self.total_var.set(f"Total: ${total:.2f}")
