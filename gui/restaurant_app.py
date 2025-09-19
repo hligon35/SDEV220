@@ -234,3 +234,85 @@ class RestaurantApp:
         self.subtotal_var.set(f"Subtotal: ${subtotal:.2f}")
         self.tax_var.set(f"Tax: ${tax:.2f}")
         self.total_var.set(f"Total: ${total:.2f}")
+
+    # --------------- Checkout & Receipt ---------------
+    def checkout_popup(self):
+        if not self.order.items:
+            messagebox.showinfo("Empty", "No items in order.")
+            return
+        subtotal = self.order.total()
+        tax = subtotal * self.TAX_RATE
+        total = subtotal + tax
+        win = tk.Toplevel(self.root)
+        win.title("Checkout Confirmation")
+        tk.Label(win, text=f"Subtotal: ${subtotal:.2f}").pack(anchor='w')
+        tk.Label(win, text=f"Tax: ${tax:.2f}").pack(anchor='w')
+        tk.Label(win, text=f"Total: ${total:.2f}", font=("Arial", 12, 'bold')).pack(anchor='w', pady=(0,5))
+        tk.Label(win, text="Confirm checkout? This will reduce stock.").pack(anchor='w')
+
+        def confirm():
+            for p, q in self.order.items:
+                # Reduce stock using updated product structure
+                pid_val = getattr(p, 'prodID', getattr(p, 'id', None))
+                if pid_val is not None:
+                    self.inventory.reduce_stock(pid_val, q)
+            # Save placeholder (no-op if not implemented)
+            save_method = getattr(self.inventory, 'save_products', None)
+            if callable(save_method):
+                save_method()
+            self.refresh_products()
+            self.refresh_stock_display()
+            messagebox.showinfo("Done", "Order checked out. Stock updated.")
+            self.order = Order()
+            self.update_order_tree()
+            self.update_order_summary()
+            win.destroy()
+
+        btns = tk.Frame(win)
+        btns.pack(pady=5)
+        tk.Button(btns, text="Confirm", command=confirm).pack(side='left', padx=5)
+        tk.Button(btns, text="Cancel", command=win.destroy).pack(side='left', padx=5)
+
+    def print_receipt(self):
+        if not self.order.items:
+            messagebox.showinfo("Empty", "No items to print.")
+            return
+        subtotal = self.order.total()
+        tax = subtotal * self.TAX_RATE
+        total = subtotal + tax
+        win = tk.Toplevel(self.root)
+        win.title("Receipt Preview")
+        text = tk.Text(win, width=40, height=20)
+        text.pack(fill='both', expand=True)
+        text.insert('end', self.order.summary())
+        text.insert('end', f"\nTax: ${tax:.2f}\n")
+        text.insert('end', f"Total: ${total:.2f}\n")
+        text.insert('end', "\nThank you! (Printing receipt...)\n")
+        text.config(state='disabled')
+
+    # --------------- Right Buttons ---------------
+    def send_to_kitchen(self):
+        messagebox.showinfo("Kitchen", "Order sent to kitchen.")
+
+    def hold_order(self):
+        messagebox.showinfo("Hold", "Order held.")
+
+    def cancel_order(self):
+        if not self.order.items:
+            messagebox.showinfo("Nothing", "No order to cancel.")
+            return
+        if messagebox.askyesno("Cancel", "Clear current order?"):
+            self.order = Order()
+            self.update_order_tree()
+            self.update_order_summary()
+
+    def reload_menu(self):
+        load_method = getattr(self.inventory, 'load', None)
+        if callable(load_method):
+            load_method()
+        self.refresh_products()
+        self.refresh_stock_display()
+        messagebox.showinfo("Reloaded", "Menu reloaded.")
+
+    def update_stock_placeholder(self):
+        messagebox.showinfo("Stock", "Stock update screen not implemented.")
