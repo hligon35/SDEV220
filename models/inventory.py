@@ -10,8 +10,21 @@ from .product import Product, Addon
 
 class Inventory:
     def __init__(self,
-                 product_file: str = "SDEV_220_Final_Project_Group2-main/DatabaseFiles/default.txt",
-                 addon_file: str = "SDEV_220_Final_Project_Group2-main/DatabaseFiles/default_addons.txt"):
+                 product_file: Optional[str] = None,
+                 addon_file: Optional[str] = None):
+        """Initialize inventory with optional explicit file paths.
+
+        If paths are not provided, they are resolved relative to the project root (the
+        folder containing this package) as:
+          SDEV_220_Final_Project_Group2/DatabaseFiles/default.txt
+          SDEV_220_Final_Project_Group2/DatabaseFiles/default_addons.txt
+        This avoids depending on the current working directory when launching.
+        """
+        if product_file is None or addon_file is None:
+            base_dir = os.path.dirname(os.path.dirname(__file__))  # .../SDEV220
+            db_dir = os.path.join(base_dir, "SDEV_220_Final_Project_Group2", "DatabaseFiles")
+            product_file = product_file or os.path.join(db_dir, "default.txt")
+            addon_file = addon_file or os.path.join(db_dir, "default_addons.txt")
         self.product_file = product_file
         self.addon_file = addon_file
         self.products: List[Product] = []

@@ -19,14 +19,14 @@ python main.py --cli
 
 - `ModuleNotFoundError: gui.restaurant_app` -> you probably ran it from the wrong folder. `cd` into `SDEV220` first.
 - Tkinter missing? Re‑install Python from python.org (standard installer includes Tk). On Windows Store versions it can be flaky.
-- Nothing loads? Check the `SDEV_220_Final_Project_Group2-main/DatabaseFiles` folder still has `default.txt` and `default_addons.txt`.
+- Nothing loads? Check the `SDEV_220_Final_Project_Group2/DatabaseFiles` folder still has `default.txt` and `default_addons.txt`.
 
 ## What's here
 
 - `main.py` – launcher (GUI by default, CLI with `--cli`).
 - `gui/restaurant_app.py` – the Tkinter interface.
 - `models/` – inventory + product/addon + order classes.
-- `SDEV_220_Final_Project_Group2-main/DatabaseFiles/` – the text data files.
+- `SDEV_220_Final_Project_Group2/DatabaseFiles/` – the text data files.
 
 ## Future polish ideas (if we keep going)
 
