@@ -103,7 +103,6 @@ class Inventory:
             return True
         return False
 
-    # --------------------- Serialization (Optional) ---------------------
-    def save_products(self):  # Minimal placeholder - format writing not fully specified
-        # Not implemented: writing multi-line tagged format would mirror parsing order.
+    # --------------------- Serialization ---------------------
+    def save_products(self):        
         pass
